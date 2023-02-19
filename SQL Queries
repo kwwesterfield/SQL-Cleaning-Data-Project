@@ -1,0 +1,140 @@
+--Date Cleaning Project
+
+select * from dbo.NHD;
+
+----- Standardize Date Format
+
+Select SaleDate, CONVERT(Date, SaleDate)
+FROM dbo.NHD
+
+Update NHD
+SET SaleDate = CONVERT(Date,SaleDate);
+
+Select SaleDate FROM dbo.NHD;
+
+---------------------------------
+
+--Fix Nulls in Property Address Data
+
+select * from dbo.NHD 
+--WHERE PropertyAddress is null
+ORDER BY ParcelID;
+
+select a.ParcelID, a.PropertyAddress, b.ParcelID, b.PropertyAddress
+from dbo.NHD a
+JOIN dbo.NHD b
+ON a.ParcelID = b.ParcelID
+AND a.[UniqueID] <> b.[UniqueID]
+WHere a.PropertyAddress is null;
+
+
+
+select a.ParcelID, a.PropertyAddress, b.ParcelID, b.PropertyAddress, ISNULL(a.PropertyAddress,b.PropertyAddress)
+from dbo.NHD a
+JOIN dbo.NHD b
+ON a.ParcelID = b.ParcelID
+AND a.[UniqueID] <> b.[UniqueID]
+WHERE a.PropertyAddress is null;
+
+Update a 
+SET PropertyAddress = ISNULL(a.PropertyAddress,b.PropertyAddress)
+from dbo.NHD a
+JOIN dbo.NHD b
+ON a.ParcelID = b.ParcelID
+AND a.[UniqueID] <> b.[UniqueID];
+
+----------------------------------
+
+-- Breaking out Address 
+
+SELECT * from dbo.NHD 
+--WHERE PropertyAddress is null
+--ORDER BY ParcelID;
+
+
+SELECT 
+SUBSTRING(PropertyAddress, 1, CHARINDEX(',', PropertyAddress) -1) AS Address
+, SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress) +1, LEN(PropertyAddress)) AS Address
+from dbo.NHD;
+
+ALTER TABLE NHD
+ADD PropertySpiltAddress Nvarchar(255);
+
+
+Update NHD 
+SET PropertySpiltAddress = SUBSTRING(PropertyAddress, 1, CHARINDEX(',', PropertyAddress) -1)
+
+
+ALTER TABLE NHD
+ADD PropertySpiltCity Nvarchar (255);
+
+Update NHD 
+SET PropertySpiltCity =  SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress) +1, LEN(PropertyAddress))
+
+Select * FROM NHD;
+
+Select OwnerAddress FROM NHD;
+
+SELECT
+PARSENAME(REPLACE(OwnerAddress, ',','.'),3),
+PARSENAME(REPLACE(OwnerAddress, ',','.'),2),
+PARSENAME(REPLACE(OwnerAddress, ',','.'),1) 
+from NHD
+
+
+ALTER TABLE NHD
+ADD OwnerSpiltAddress Nvarchar(255);
+
+
+Update NHD 
+SET OwnerSpiltAddress = PARSENAME(REPLACE(OwnerAddress, ',','.'),3)
+
+
+ALTER TABLE NHD
+ADD OwnerSpiltCity Nvarchar (255);
+
+Update NHD 
+SET OwnerSpiltCity =  PARSENAME(REPLACE(OwnerAddress, ',','.'),2)
+
+
+ALTER TABLE NHD
+ADD OwnerSpiltState Nvarchar (255);
+
+Update NHD 
+SET OwnerSpiltState =  PARSENAME(REPLACE(OwnerAddress, ',','.'),1)
+
+---------------------------
+
+--Remove Duplicates
+
+
+
+WITH RowNumCTE AS( 
+
+Select *, 
+ROW_NUMBER() OVER (PARTITION BY ParcelID, PropertyAddress,
+SalePrice,SaleDate, LegalReference 
+ORDER BY UniqueID) row_num
+FROM NHD)
+
+DELETE FROM RowNumCTE
+Where row_num > 1 
+--Order By PropertyAddress 
+
+Select* FROM NHD
+
+
+----------
+
+--Delete Unused Columns
+
+ALTER TABLE NHD
+DROP COLUMN OwnerAddress, TaxDistrict, PropertyAddress
+
+ALTER TABLE NHD
+DROP COLUMN SaleDate
+
+SELECT * FROM NHD
+
+
+ 
